@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hate Crimes Visualization</title>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <style>
+    body { font: 12px sans-serif; text-align: center; }
+    h2 {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .container {
+      display: inline-block;
+      text-align: left;
+      max-width: 100%;
+    }
+    .axis path, .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+    .tooltip {
+      position: absolute;
+      text-align: center;
+      padding: 6px;
+      background: white;
+      border: 1px solid #ccc;
+      pointer-events: none;
+      font-size: 13px;
+    }
+    .button {
+      margin: 12px auto;
+      padding: 8px 16px;
+      background-color: #336699;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .legend text {
+      font-size: 15px;
+    }
+    .video-section {
+      margin-top: 40px;
+    }
+    .video-container {
+      position: relative;
+      padding-bottom: 56.25%;
+      height: 0;
+      overflow: hidden;
+      max-width: 100%;
+    }
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .doc-link {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Hate Crimes In Austin Texas - 2017–2024</h2>
+  <div class="container">
+    <button class="button" id="toggleView">Switch to Total Bar Chart</button>
+    <div id="chart"></div>
+
+    <div class="video-section">
+      <div class="doc-link">
+        <a href="https://docs.google.com/document/d/14HZhjqe0T0dNAwPkeXTEHA4P1ZgnNRJGTxhvQ8lfYIo/edit?usp=sharing" target="_blank">View Related Document</a>
+      </div>
+      <div class="video-container">
+        <iframe src="https://www.youtube.com/embed/CNL6kRouYkE" title="YouTube video" frameborder="0" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var data = [
+      {"Year":"2017","Arab":0,"Asian":0,"Bisexual":0,"Black":5,"Buddhist":0,"Disability":0,"Female":0,"Gay":4,"Hispanic":2,"Islamic":2,"Jewish":2,"Lesbian":0,"Transgender":1,"White":1},
+      {"Year":"2018","Arab":1,"Asian":0,"Bisexual":0,"Black":8,"Buddhist":0,"Disability":1,"Female":0,"Gay":3,"Hispanic":3,"Islamic":0,"Jewish":0,"Lesbian":1,"Transgender":1,"White":1},
+      {"Year":"2019","Arab":0,"Asian":0,"Bisexual":0,"Black":3,"Buddhist":0,"Disability":0,"Female":0,"Gay":5,"Hispanic":1,"Islamic":1,"Jewish":1,"Lesbian":0,"Transgender":1,"White":1},
+      {"Year":"2020","Arab":0,"Asian":0,"Bisexual":0,"Black":12,"Buddhist":1,"Disability":0,"Female":0,"Gay":8,"Hispanic":1,"Islamic":0,"Jewish":0,"Lesbian":0,"Transgender":1,"White":1},
+      {"Year":"2021","Arab":0,"Asian":0,"Bisexual":0,"Black":11,"Buddhist":0,"Disability":0,"Female":0,"Gay":6,"Hispanic":2,"Islamic":0,"Jewish":4,"Lesbian":0,"Transgender":1,"White":1},
+      {"Year":"2022","Arab":2,"Asian":3,"Bisexual":0,"Black":9,"Buddhist":0,"Disability":0,"Female":0,"Gay":5,"Hispanic":2,"Islamic":0,"Jewish":1,"Lesbian":0,"Transgender":1,"White":1},
+      {"Year":"2023","Arab":1,"Asian":1,"Bisexual":0,"Black":7,"Buddhist":0,"Disability":0,"Female":0,"Gay":7,"Hispanic":2,"Islamic":0,"Jewish":2,"Lesbian":0,"Transgender":2,"White":1}
+    ];
+
+    var keys = d3.keys(data[0]).filter(k => k !== "Year");
+    data.forEach(d => {
+      var y0 = 0;
+      d.total = 0;
+      d.layers = keys.map(k => {
+        var val = +d[k];
+        var r = { name: k, y0: y0, y1: y0 + val };
+        y0 += val;
+        d.total += val;
+        return r;
+      });
+    });
+
+    var margin = { top: 20, right: 150, bottom: 60, left: 40 },
+        width = 900 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    var svg = d3.select("#chart").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom + 100)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var x = d3.scale.ordinal().rangeRoundBands([0, width], 0.1)
+              .domain(data.map(d => d.Year));
+    var y = d3.scale.linear().range([height, 0])
+              .domain([0, d3.max(data, d => d.total)]);
+    var color = d3.scale.category20();
+
+    var xAxis = d3.svg.axis().scale(x).orient("bottom");
+    var yAxis = d3.svg.axis().scale(y).orient("left");
+
+    svg.append("g").attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")").call(xAxis);
+
+    var yAxisEl = svg.append("g").attr("class", "y axis").call(yAxis);
+
+    var tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
+
+    var groups = svg.selectAll(".group").data(data)
+      .enter().append("g")
+      .attr("transform", d => "translate(" + x(d.Year) + ",0)");
+
+    var legend = svg.append("g")
+      .attr("class", "legend")
+      .attr("transform", "translate(0," + (height + 40) + ")");
+
+    var legendItems = legend.selectAll(".legend-item")
+      .data(keys.slice().reverse())
+      .enter().append("g")
+      .attr("class", "legend-item")
+      .attr("transform", (d, i) => "translate(" + (i % 5) * 180 + "," + Math.floor(i / 5) * 25 + ")");
+
+    legendItems.append("rect")
+      .attr("x", 0).attr("width", 18).attr("height", 18)
+      .style("fill", color);
+
+    legendItems.append("text")
+      .attr("x", 24).attr("y", 9).attr("dy", ".35em")
+      .style("text-anchor", "start")
+      .text(d => d);
+
+    function drawStacked() {
+      legend.style("display", "block");
+      groups.selectAll("rect").remove();
+      groups.selectAll("rect")
+        .data(d => d.layers)
+        .enter().append("rect")
+        .attr("width", x.rangeBand())
+        .attr("y", d => y(d.y1))
+        .attr("height", d => y(d.y0) - y(d.y1))
+        .style("fill", d => color(d.name))
+        .on("click", d => alert("Group: " + d.name));
+    }
+
+    function drawTotalBars() {
+      legend.style("display", "none");
+      groups.selectAll("rect").remove();
+      groups.append("rect")
+        .attr("class", "totalbar")
+        .attr("width", x.rangeBand())
+        .attr("y", d => y(d.total))
+        .attr("height", d => height - y(d.total))
+        .style("fill", "steelblue")
+        .on("mouseover", function(d) {
+          tooltip.transition().duration(200).style("opacity", .9);
+          tooltip.html("Year: " + d.Year + "<br>Total: " + d.total)
+            .style("left", (d3.event.pageX + 5) + "px")
+            .style("top", (d3.event.pageY - 28) + "px");
+        })
+        .on("mouseout", function() {
+          tooltip.transition().duration(500).style("opacity", 0);
+        });
+    }
+
+    drawStacked();
+
+    var isStacked = true;
+    d3.select("#toggleView").on("click", function() {
+      if (isStacked) {
+        drawTotalBars();
+        this.textContent = "Switch to Stacked View";
+        isStacked = false;
+      } else {
+        drawStacked();
+        this.textContent = "Switch to Total Bar Chart";
+        isStacked = true;
+      }
+    });
+  </script>
+</body>
+</html>
